@@ -1,0 +1,83 @@
+# handwritten_character_recognition.py
+
+"""
+Handwritten Character Recognition
+---------------------------------
+Build a system that recognizes handwritten characters (A-Z, a-z) using
+image processing and deep learning techniques.
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.utils import to_categorical
+from sklearn.model_selection import train_test_split
+import os
+from PIL import Image
+
+# === Load Dataset ===
+# Assume dataset is in folders per class: data/A/, data/B/, ..., data/z/
+data_dir = "data/"
+image_size = (28, 28)
+classes = sorted(os.listdir(data_dir))
+num_classes = len(classes)
+
+X = []
+y = []
+
+for idx, char_class in enumerate(classes):
+    class_path = os.path.join(data_dir, char_class)
+    for img_name in os.listdir(class_path):
+        try:
+            img_path = os.path.join(class_path, img_name)
+            img = Image.open(img_path).convert('L')  # Convert to grayscale
+            img = img.resize(image_size)
+            X.append(np.array(img))
+            y.append(idx)
+        except Exception as e:
+            print(f"Error loading {img_path}: {e}")
+
+X = np.array(X).reshape(-1, 28, 28, 1) / 255.0  # Normalize
+y = to_categorical(np.array(y), num_classes)
+
+# === Train-Test Split ===
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# === Build CNN Model ===
+model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)),
+    MaxPooling2D(2, 2),
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D(2, 2),
+    Flatten(),
+    Dense(128, activation='relu'),
+    Dropout(0.3),
+    Dense(num_classes, activation='softmax')
+])
+
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+model.summary()
+
+# === Train the Model ===
+history = model.fit(X_train, y_train, epochs=20, batch_size=32, validation_data=(X_test, y_test))
+
+# === Evaluate Model ===
+test_loss, test_acc = model.evaluate(X_test, y_test)
+print(f"\nTest Accuracy: {test_acc * 100:.2f}%")
+
+# === Save Model ===
+model.save("models/character_recognition_cnn.h5")
+
+# === Plot Accuracy ===
+plt.figure(figsize=(8, 6))
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy Over Epochs')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.tight_layout()
+plt.savefig("assets/character_accuracy.png")
+plt.show()
