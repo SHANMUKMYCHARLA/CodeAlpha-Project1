@@ -1,0 +1,72 @@
+# credit_scoring_model.py
+
+"""
+Credit Scoring Model
+---------------------
+Predict the creditworthiness of individuals using classification algorithms
+and assess the model's performance.
+"""
+
+# === Import Libraries ===
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+
+# === Load Dataset ===
+# Replace with your dataset path or load directly if hosted online
+df = pd.read_csv("data/german_credit_data.csv")
+
+# === Data Preparation ===
+X = df.drop("CreditRisk", axis=1)
+y = df["CreditRisk"]
+
+numerical_cols = X.select_dtypes(include=["int64", "float64"]).columns.tolist()
+categorical_cols = X.select_dtypes(include=["object"]).columns.tolist()
+
+# === Preprocessing Pipeline ===
+preprocessor = ColumnTransformer([
+    ("num", StandardScaler(), numerical_cols),
+    ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_cols)
+])
+
+# === Build ML Pipeline ===
+pipeline = Pipeline([
+    ("preprocessor", preprocessor),
+    ("classifier", RandomForestClassifier(n_estimators=100, random_state=42))
+])
+
+# === Train-Test Split ===
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# === Train the Model ===
+pipeline.fit(X_train, y_train)
+
+# === Predict ===
+y_pred = pipeline.predict(X_test)
+
+# === Evaluate the Model ===
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print("\nClassification Report:\n", classification_report(y_test, y_pred))
+print("\nConfusion Matrix:\n", confusion_matrix(y_test, y_pred))
+
+# === Feature Importance Plot ===
+model = pipeline.named_steps["classifier"]
+features = pipeline.named_steps["preprocessor"].transformers_[0][2] + list(
+    pipeline.named_steps["preprocessor"].transformers_[1][1].get_feature_names_out(categorical_cols)
+)
+importances = model.feature_importances_
+
+# Plot Feature Importances
+plt.figure(figsize=(10, 6))
+plt.barh(features, importances)
+plt.title("Feature Importance in Credit Scoring")
+plt.xlabel("Importance Score")
+plt.tight_layout()
+plt.savefig("assets/feature_importance.png")
+plt.show()
